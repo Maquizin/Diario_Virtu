@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1051926224820",
+    "project_id": "serenia-e7462",
+    "storage_bucket": "serenia-e7462.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1051926224820:android:b74593e550b49855dbdce1",
+        "android_client_info": {
+          "package_name": "com.example.diario_virtual"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBGCZ3idZS7qfy9E7JYCInEkFzULDlxQh0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
