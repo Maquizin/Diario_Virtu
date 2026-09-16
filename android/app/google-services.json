@@ -12,7 +12,20 @@
           "package_name": "com.example.diario_virtual"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1051926224820-h1r1hacje32qum67eglfffu9jnpf3fes.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.diario_virtual",
+            "certificate_hash": "0095ab815710e70e6b3037f50331bdbf3f95a3d5"
+          }
+        },
+        {
+          "client_id": "1051926224820-8sdnsepe6uqkooi9k1ermsk3vjaagbil.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBGCZ3idZS7qfy9E7JYCInEkFzULDlxQh0"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1051926224820-8sdnsepe6uqkooi9k1ermsk3vjaagbil.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
