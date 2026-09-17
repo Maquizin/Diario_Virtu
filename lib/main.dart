@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'screens/auth_gate.dart';
 import 'screens/login_screen.dart';
 import 'screens/tela_principal.dart';
 
@@ -20,9 +21,10 @@ class DiarioApp extends StatelessWidget {
       title: 'Diário com IA',
       debugShowCheckedModeBanner: false,
 
-      initialRoute: '/login',
+      initialRoute: '/',
 
       routes: {
+        '/': (context) => const AuthGate(),
         '/login': (context) => LoginScreen(),
         '/diario': (context) => const TelaPrincipal(),
       },
