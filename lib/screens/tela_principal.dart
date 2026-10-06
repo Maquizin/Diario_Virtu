@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
 import 'pagina_diario.dart';
 import 'pagina_historico.dart';
 import 'pagina_calendario.dart';
@@ -54,6 +54,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             // DIÁRIO (mini resumo / histórico)
             IconButton(
               onPressed: () {
+                HapticFeedback.lightImpact();
                 setState(() {
                   paginaAtual = 0;
                 });
@@ -69,6 +70,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             // CALENDÁRIO
             IconButton(
               onPressed: () {
+                HapticFeedback.lightImpact();
                 setState(() {
                   paginaAtual = 1;
                 });
@@ -89,7 +91,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
                color: Colors.white,
                 shape: BoxShape.circle,
                 ),
-  child: IconButton(
+    child: IconButton(
     onPressed: () {
       HapticFeedback.lightImpact();
       _abrirNovaAnotacao();
@@ -104,6 +106,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             // ESTATÍSTICAS
             IconButton(
               onPressed: () {
+                HapticFeedback.lightImpact();
                 setState(() {
                   paginaAtual = 2;
                 });
@@ -119,6 +122,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             // SOBRE MIM / CONFIG
             IconButton(
               onPressed: () {
+                HapticFeedback.lightImpact();
                 setState(() {
                   paginaAtual = 3;
                 });

@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/diario_service.dart';
+import '../models/entrada_diario.dart';
+import '../utils/humor_utils.dart';
 
 const List<String> _nomesMesesAbrev = [
   'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
@@ -18,7 +20,9 @@ const List<Color> _coresFundo = [
 
 class PaginaDiario extends StatefulWidget {
   final DateTime? dataSelecionada;
-  const PaginaDiario({super.key, this.dataSelecionada});
+  final EntradaDiario? entradaExistente;
+
+  const PaginaDiario({super.key, this.dataSelecionada, this.entradaExistente});
 
   @override
   State<PaginaDiario> createState() => _PaginaDiarioState();
@@ -44,9 +48,18 @@ class _PaginaDiarioState extends State<PaginaDiario> {
 
   @override
   void initState() {
-    super.initState();
+  super.initState();
+  final existente = widget.entradaExistente;
+
+  if (existente != null) {
+    tituloController.text = existente.titulo;
+    controller.text = existente.texto;
+    humor = existente.humor;
+    data = existente.data;
+  } else {
     data = widget.dataSelecionada ?? DateTime.now();
   }
+}
 
   Color _corDoHumor(double valor) {
     final hue = valor * 120;
@@ -161,18 +174,30 @@ class _PaginaDiarioState extends State<PaginaDiario> {
     );
   }
 
-  void salvarEntrada() async {
-    if (controller.text.isEmpty) return;
+void salvarEntrada() async {
+  if (controller.text.isEmpty) return;
 
+  final existente = widget.entradaExistente;
+
+  if (existente != null) {
+    await DiarioService().atualizarEntrada(
+      existente.id!,
+      titulo: tituloController.text,
+      texto: controller.text,
+      humor: humor,
+      data: data,
+    );
+  } else {
     await DiarioService().salvarEntrada(
       controller.text,
       titulo: tituloController.text,
       humor: humor,
       data: data,
     );
-
-    if (mounted) Navigator.pop(context);
   }
+
+  if (mounted) Navigator.pop(context);
+}
 
   @override
   Widget build(BuildContext context) {
