@@ -2,7 +2,6 @@ name: diario_virtual
 description: "A new Flutter project."
 publish_to: 'none'
 version: 0.1.0+1
-
 environment:
   sdk: ^3.11.0
 
@@ -24,14 +23,15 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/logo.png
     - assets/google.png
     - assets/icon.png
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icon.png"
-
-  
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/icon_foreground.png"

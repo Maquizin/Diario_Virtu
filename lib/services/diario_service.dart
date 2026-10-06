@@ -12,19 +12,45 @@ class DiarioService {
 
   final FirebaseAuth auth = FirebaseAuth.instance;
 
-  Future<void> salvarEntrada(String texto, {double humor = 0.5}) async {
-    final user = auth.currentUser;
-    if (user == null) return;
+ Future<void> salvarEntrada(
+  String texto, {
+  String titulo = '',
+  double humor = 0.5,
+  String? audioUrl,
+  String? imagemUrl,
+  DateTime? data,
+}) async {
+  final user = auth.currentUser;
+  if (user == null) return;
 
-    await firestore
-        .collection('usuarios')
-        .doc(user.uid)
-        .collection('entradas')
-        .add({
-          'texto': texto,
-          'data': Timestamp.now(),
-        });
-  }
+  await firestore
+      .collection('usuarios')
+      .doc(user.uid)
+      .collection('entradas')
+      .add({
+        'titulo': titulo,
+        'texto': texto,
+        'data': Timestamp.fromDate(data ?? DateTime.now()),
+        'humor': humor,
+        'audioUrl': audioUrl,
+        'imagemUrl': imagemUrl,
+      });
+}
+
+Stream<List<EntradaDiario>> streamEntradasPeriodo(DateTime inicio, DateTime fim) {
+  final user = auth.currentUser;
+  if (user == null) return const Stream.empty();
+
+  return firestore
+      .collection('usuarios')
+      .doc(user.uid)
+      .collection('entradas')
+      .where('data', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+      .where('data', isLessThan: Timestamp.fromDate(fim))
+      .orderBy('data')
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((doc) => EntradaDiario.fromDoc(doc)).toList());
+}
 
   Future<void> deletarEntrada(String id) async {
   final user = auth.currentUser;

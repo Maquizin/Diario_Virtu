@@ -1,203 +1,348 @@
 // lib/screens/pagina_diario.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../services/diario_service.dart';
 
+const List<String> _nomesMesesAbrev = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+];
+
+const List<Color> _coresFundo = [
+  Color(0xFF000000),
+  Color(0xFF1A1A2E),
+  Color(0xFF2E1A3E),
+  Color(0xFF1A2E2E),
+  Color(0xFF2E1A1A),
+];
+
 class PaginaDiario extends StatefulWidget {
-  const PaginaDiario({super.key});
+  final DateTime? dataSelecionada;
+  const PaginaDiario({super.key, this.dataSelecionada});
 
   @override
   State<PaginaDiario> createState() => _PaginaDiarioState();
 }
 
 class _PaginaDiarioState extends State<PaginaDiario> {
+  final TextEditingController tituloController = TextEditingController();
   final TextEditingController controller = TextEditingController();
+
+  late DateTime data;
   double humor = 0.5;
+  bool favorito = false;
+  double tamanhoFonte = 16;
+  Color corFundo = Colors.black;
+
+  final List<IconData> _iconesHumor = [
+    Icons.sentiment_very_dissatisfied,
+    Icons.sentiment_dissatisfied,
+    Icons.sentiment_neutral,
+    Icons.sentiment_satisfied,
+    Icons.sentiment_very_satisfied,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    data = widget.dataSelecionada ?? DateTime.now();
+  }
 
   Color _corDoHumor(double valor) {
-    // 0.0 = vermelho (triste), 0.5 = amarelo, 1.0 = verde (feliz)
-    final hue = valor * 120; // 0 = vermelho, 120 = verde no círculo de cor HSV
+    final hue = valor * 120;
     return HSVColor.fromAHSV(1.0, hue, 0.65, 0.9).toColor();
   }
 
-  String _rotuloHumor(double valor) {
-    if (valor < 0.2) return "Muito mal";
-    if (valor < 0.4) return "Mal";
-    if (valor < 0.6) return "Neutro";
-    if (valor < 0.8) return "Bem";
-    return "Muito bem";
+  void _alternarHumor() {
+    setState(() {
+      final passo = 0.25;
+      humor = humor + passo >= 1.05 ? 0.0 : humor + passo;
+    });
+  }
+
+  Future<void> _escolherData() async {
+    final novaData = await showDatePicker(
+      context: context,
+      initialDate: data,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(primary: Colors.deepPurpleAccent),
+        ),
+        child: child!,
+      ),
+    );
+    if (novaData != null) setState(() => data = novaData);
+  }
+
+  void _abrirSeletorFundo() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Cor de fundo', style: TextStyle(color: Colors.white, fontSize: 16)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: _coresFundo.map((cor) {
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => corFundo = cor);
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: cor,
+                        shape: BoxShape.circle,
+                        border: corFundo == cor ? Border.all(color: Colors.white, width: 2) : null,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _abrirSeletorFonte() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Tamanho da fonte', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  Slider(
+                    activeColor: Colors.deepPurpleAccent,
+                    value: tamanhoFonte,
+                    min: 12,
+                    max: 28,
+                    onChanged: (v) {
+                      setModalState(() => tamanhoFonte = v);
+                      setState(() => tamanhoFonte = v);
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _emBreve(String recurso) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Em breve: $recurso')),
+    );
   }
 
   void salvarEntrada() async {
     if (controller.text.isEmpty) return;
 
-    await DiarioService().salvarEntrada(controller.text, humor: humor);
+    await DiarioService().salvarEntrada(
+      controller.text,
+      titulo: tituloController.text,
+      humor: humor,
+      data: data,
+    );
 
-    controller.clear();
-    setState(() => humor = 0.5);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Entrada salva!")),
-      );
-    }
+    if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final nome = FirebaseAuth.instance.currentUser?.displayName?.split(' ').first;
     final cor = _corDoHumor(humor);
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              nome != null ? "Olá, $nome!" : "Olá!",
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              "O que você está sentindo hoje?",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Barra de humor
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
+    return Scaffold(
+      backgroundColor: corFundo,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Topo: fechar, favoritar, salvar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        _rotuloHumor(humor),
-                        style: TextStyle(
-                          color: cor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      IconButton(
+                        onPressed: () => setState(() => favorito = !favorito),
+                        icon: Icon(
+                          favorito ? Icons.star : Icons.star_border,
+                          color: favorito ? Colors.amber : Colors.white,
                         ),
                       ),
-                      Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(color: cor, shape: BoxShape.circle),
+                      ElevatedButton(
+                        onPressed: salvarEntrada,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: const Text('Salvar'),
                       ),
                     ],
                   ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: cor,
-                      inactiveTrackColor: Colors.grey.shade800,
-                      thumbColor: cor,
-                      overlayColor: cor.withOpacity(0.2),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // Data (pílula) + avatar de humor
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: _escolherData,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1C1C1E),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            '${data.day}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_nomesMesesAbrev[data.month - 1]}.\n${data.year}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+                        ],
+                      ),
                     ),
-                    child: Slider(
-                      value: humor,
-                      onChanged: (v) => setState(() => humor = v),
+                  ),
+                  GestureDetector(
+                    onTap: _alternarHumor,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: cor.withOpacity(0.25),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _iconesHumor[(humor * 4).round().clamp(0, 4)],
+                        color: cor,
+                        size: 30,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-            // Campo de texto
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: TextField(
-                controller: controller,
-                maxLines: 8,
-                style: const TextStyle(color: Colors.white),
+              // Título
+              TextField(
+                controller: tituloController,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
-                  hintText: "Escreva sobre seu dia...",
-                  hintStyle: TextStyle(color: Colors.grey),
+                  hintText: 'Título da nota',
+                  hintStyle: TextStyle(color: Colors.white38),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 8),
 
-            // Botões de anexo (áudio e imagem) — funcionais quando adicionarmos os pacotes
-            Row(
-              children: [
-                _botaoAnexo(Icons.mic_none, "Áudio", () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Em breve: gravar áudio")),
-                  );
-                }),
-                const SizedBox(width: 12),
-                _botaoAnexo(Icons.image_outlined, "Imagem", () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Em breve: anexar imagem")),
-                  );
-                }),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: salvarEntrada,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+              // Corpo
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: TextStyle(color: Colors.white, fontSize: tamanhoFonte),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Escreva seu registro aqui...',
+                    hintStyle: TextStyle(color: Colors.white38),
                   ),
                 ),
-                child: const Text("Salvar", style: TextStyle(fontSize: 16)),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 16),
+
+              // Barra inferior de recursos
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C1E),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _botaoFerramenta(Icons.image_outlined, 'Foto', () => _emBreve('anexar foto')),
+                    _botaoFerramenta(Icons.emoji_emotions_outlined, 'Figurinhas', () => _emBreve('figurinhas')),
+                    _botaoFerramenta(Icons.mic_none, 'Voz', () => _emBreve('gravar áudio')),
+                    _botaoFerramenta(Icons.layers_outlined, 'Fundo', _abrirSeletorFundo),
+                    _botaoFerramenta(Icons.text_fields, 'Fonte', _abrirSeletorFonte),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _botaoAnexo(IconData icone, String label, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
-            children: [
-              Icon(icone, color: Colors.white70),
-              const SizedBox(height: 4),
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            ],
-          ),
-        ),
+  Widget _botaoFerramenta(IconData icone, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Icon(icone, color: Colors.white, size: 22),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        ],
       ),
     );
   }
