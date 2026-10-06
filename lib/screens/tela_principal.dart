@@ -85,20 +85,21 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             Container(
               width: 60,
               height: 60,
-
-              decoration: BoxDecoration(
-                color: Colors.white,
+             decoration: BoxDecoration(
+               color: Colors.white,
                 shape: BoxShape.circle,
-              ),
-
-              child: IconButton(
-                onPressed: _abrirNovaAnotacao,
-                icon: Icon(
-                  Icons.add,
-                  color: Colors.black,
                 ),
-              ),
-            ),
+  child: IconButton(
+    onPressed: () {
+      HapticFeedback.lightImpact();
+      _abrirNovaAnotacao();
+    },
+    icon: Icon(
+      Icons.add,
+      color: Colors.black,
+    ),
+  ),
+),
 
             // ESTATÍSTICAS
             IconButton(
