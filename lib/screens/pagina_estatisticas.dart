@@ -1,8 +1,11 @@
 // lib/screens/pagina_estatisticas.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-// Onde você colar o código do serviço da IA (arquivo lib/services/ia_service.dart).
+import '../services/diario_service.dart';
 import '../services/relatorio_ia_service.dart';
+import '../utils/humor_utils.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
+
 // Cores do app (tema escuro, destaque roxo)
 const _fundoCard = Color(0xFF1C1C1E);
 const _roxo = Color(0xFF7C4DFF);
@@ -10,7 +13,6 @@ const _roxoEscuro = Color(0xFF2A1F5C);
 
 // ---------------------------------------------------------------------------
 // MODELOS SIMPLES DESTA TELA
-// Quando você me mandar o model do registro, eu troco isso pelo seu.
 // ---------------------------------------------------------------------------
 class Humor {
   final String nome;
@@ -19,17 +21,13 @@ class Humor {
   const Humor(this.nome, this.cor, this.icone);
 }
 
-// TODO: troque pelos seus 8 humores reais (nomes, cores e imagens).
-const humores = <Humor>[
-  Humor('Calmo', Color(0xFF9AEDB5), Icons.sentiment_neutral),
-  Humor('Contente', Color(0xFFD6EE92), Icons.sentiment_satisfied),
-  Humor('Feliz', Color(0xFFEED199), Icons.sentiment_very_satisfied),
-  Humor('Apaixonado', Color(0xFFEB7E7E), Icons.favorite),
-  Humor('Preocupado', Color(0xFFF09AC0), Icons.sentiment_dissatisfied),
-  Humor('Confuso', Color(0xFFCF9AEE), Icons.sentiment_neutral),
-  Humor('Triste', Color(0xFF9A9AEE), Icons.sentiment_very_dissatisfied),
-  Humor('Irritado', Color(0xFF9AD5EE), Icons.mood_bad),
-];
+// 5 níveis de humor, os mesmos do Diário e do Histórico
+final humores = List<Humor>.generate(5, (i) {
+  final valor = i / 4; // 0.0, 0.25, 0.5, 0.75, 1.0
+  return Humor(rotuloHumor(valor), corDoHumor(valor), iconeHumor(valor));
+});
+
+int _indiceHumor(double humor) => (humor * 4).round().clamp(0, 4).toInt();
 
 class RegistroResumo {
   final DateTime data;
@@ -51,6 +49,8 @@ class PaginaEstatisticas extends StatefulWidget {
 }
 
 class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
+  final DiarioService _diarioService = DiarioService();
+
   List<RegistroResumo> _registros = [];
   bool _carregando = true;
   DateTime _mes = DateTime(DateTime.now().year, DateTime.now().month);
@@ -61,21 +61,40 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
     _carregar();
   }
 
-  /// TODO: buscar no Firestore os registros do usuário e converter para
-  /// [RegistroResumo]. Por enquanto devolve lista vazia.
   Future<List<RegistroResumo>> _carregarRegistros() async {
-    return [];
+    final entradas = await _diarioService.buscarTodasEntradas();
+    return entradas
+        .map((e) => RegistroResumo(
+              data: e.data,
+              humorIndex: _indiceHumor(e.humor),
+              temFoto: e.imagemUrl != null,
+            ))
+        .toList();
   }
 
-  /// TODO: buscar os registros COMPLETOS do mês (texto, fotos e áudios em bytes)
-  /// e converter para [RegistroParaRelatorio].
   Future<List<RegistroParaRelatorio>> _carregarRegistrosParaRelatorio(
       DateTime mes) async {
-    return [];
+    final inicio = DateTime(mes.year, mes.month);
+    final fim = DateTime(mes.year, mes.month + 1);
+    final entradas = await _diarioService.buscarEntradasPeriodo(inicio, fim);
+
+    return entradas.map((e) {
+      final texto = e.titulo.isNotEmpty ? '${e.titulo}\n${e.texto}' : e.texto;
+      return RegistroParaRelatorio(
+        data: e.data,
+        humor: rotuloHumor(e.humor),
+        texto: texto,
+        // Quando Foto e Voz estiverem prontas (Firebase Storage), baixe os
+        // bytes aqui e preencha imagens/audios.
+      );
+    }).toList();
   }
 
   Future<void> _carregar() async {
-    final lista = await _carregarRegistros();
+    List<RegistroResumo> lista = [];
+    try {
+      lista = await _carregarRegistros();
+    } catch (_) {}
     if (!mounted) return;
     setState(() {
       _registros = lista;
@@ -138,7 +157,6 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
 
   // ----- relatório -----
   Future<void> _gerarRelatorio() async {
-    final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -149,23 +167,105 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
     String? erro;
     try {
       final registros = await _carregarRegistrosParaRelatorio(_mes);
+      debugPrint('RELATORIO IA: ${registros.length} registros enviados');
       analise = await RelatorioIAService().gerar(mes: _mes, registros: registros);
-    } catch (e) {
-      erro = e.toString();
+    } on StateError catch (e) {
+      erro = e.message;
+    } catch (e, stack) {
+      erro = '${e.runtimeType}\n\n$e';
+      debugPrint('RELATORIO IA ERRO: $e\n$stack');
     }
 
     if (!mounted) return;
     Navigator.of(context).pop(); // fecha o carregando
 
     if (erro != null) {
-      messenger.showSnackBar(SnackBar(content: Text('Não foi possível gerar: $erro')));
+      _mostrarErro(erro);
       return;
     }
 
-    // TODO: montar o PDF com [analise] + dados numéricos (sequência, humores...).
-    messenger.showSnackBar(
-      SnackBar(content: Text('Análise pronta: ${analise!.resumoGeral}')),
+    _mostrarAnalise(analise!);
+  }
+
+  void _mostrarErro(String erro) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: _fundoCard,
+        title: const Text('Não foi possível gerar',
+            style: TextStyle(color: Colors.white)),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            erro,
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
     );
+  }
+  void _mostrarAnalise(RelatorioIA a) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _fundoCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        builder: (context, scroll) => ListView(
+          controller: scroll,
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text('Análise de ${_nomeMes(_mes)}',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            _secao('Resumo geral', a.resumoGeral),
+            _secaoLista('Temas recorrentes', a.temasRecorrentes),
+            _secaoLista('Pontos de atenção', a.pontosDeAtencao),
+            _secao('Variação do humor', a.variacaoDoHumor),
+            _secao('Observações para o médico', a.observacoesParaOMedico),
+            const Text(
+              'Resumo gerado por IA a partir dos seus registros. Não é diagnóstico e não substitui avaliação profissional.',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _secao(String titulo, String texto) {
+    if (texto.trim().isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(titulo,
+              style: const TextStyle(
+                  color: _roxo, fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Text(texto, style: const TextStyle(color: Colors.white, fontSize: 15)),
+        ],
+      ),
+    );
+  }
+
+  Widget _secaoLista(String titulo, List<String> itens) {
+    if (itens.isEmpty) return const SizedBox.shrink();
+    return _secao(titulo, itens.map((i) => '• $i').join('\n'));
   }
 
   // ----- UI -----
@@ -215,7 +315,7 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
                           borderRadius: BorderRadius.circular(16)),
                     ),
                     onPressed: _gerarRelatorio,
-                    icon: const Icon(Icons.picture_as_pdf),
+                    icon: const Icon(Icons.auto_awesome),
                     label: Text('Gerar relatório de ${_nomeMes(_mes)}'),
                   ),
                 ),
@@ -466,18 +566,14 @@ class _CardHumoresMes extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.9,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               for (var i = 0; i < humores.length; i++)
                 Column(
                   children: [
                     CircleAvatar(
-                      radius: 26,
+                      radius: 22,
                       backgroundColor: humores[i].cor,
                       child: Icon(humores[i].icone, color: Colors.black87),
                     ),

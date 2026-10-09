@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "1051926224820-lvn0k5su4krb86f2n2g3slgkdbtr2r5o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.diario_virtual",
+            "certificate_hash": "6753af69e9af499d5b1cf4a5cc3cd406f750e204"
+          }
+        },
+        {
           "client_id": "1051926224820-8sdnsepe6uqkooi9k1ermsk3vjaagbil.apps.googleusercontent.com",
           "client_type": 3
         }

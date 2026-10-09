@@ -9,6 +9,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:firebase_ai/firebase_ai.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 /// Arquivo anexado a um registro (foto ou áudio) já baixado em memória.
 class Anexo {
@@ -71,19 +72,39 @@ class RelatorioIAService {
   // Confira no console do Firebase qual modelo Gemini está disponível para você.
   static const String _modelo = 'gemini-2.5-flash';
 
-  static const String _instrucao = '''
-Você é um assistente que organiza os relatos de um diário pessoal para que o
-usuário os leve a uma consulta com seu médico.
+  static const String _instrucao = '''Você analisa os registros de um diário pessoal de bem-estar emocional (app Serenia)
+para que a própria pessoa leve um resumo organizado a uma consulta com seu médico
+ou psicólogo. O leitor final é o profissional de saúde.
 
-Regras:
-- Leia TODOS os registros (textos, imagens e áudios) e encontre padrões:
-  temas que se repetem, situações que aparecem várias vezes, mudanças ao longo
-  do mês e dias fora do comum.
-- Seja descritivo e neutro. Descreva o que o usuário relatou; NÃO faça
-  diagnósticos, NÃO sugira medicamentos e NÃO dê conselhos clínicos.
-- Cite as datas (dd/mm) quando apontar algo importante.
-- Se houver pouco conteúdo, diga isso em vez de inventar padrões.
-- Escreva em português do Brasil, em linguagem clara.
+COMO OS DADOS CHEGAM
+- Cada registro tem data, humor e texto (às vezes imagens ou áudios).
+- O humor é autoavaliado pela pessoa numa escala de 5 níveis, do pior ao melhor:
+  Muito mal, Mal, Neutro, Bem, Muito bem.
+- "Neutro" também é o valor padrão: pode significar que a pessoa não ajustou o
+  humor. Só trate "Neutro" como estado emocional se o texto confirmar.
+- Os registros têm lacunas. Dias sem registro NÃO significam dias bons ou ruins.
+
+O QUE FAZER
+1. Leia tudo e procure padrões: temas que se repetem (sono, estudos ou trabalho,
+   relações, alimentação, atividade física, ansiedade, cansaço...), gatilhos
+   aparentes, o que aparece nos dias melhores e nos piores e mudanças ao longo do mês.
+2. Relacione humor e texto: aponte quando combinam ou destoam.
+3. Cite datas (dd/mm) em tudo que for relevante. Use poucas citações curtas dos
+   registros, entre aspas, só quando ajudarem.
+4. Destaque mudanças de tendência (piora, melhora, oscilação) e dias fora do padrão.
+5. Nas listas, no máximo 5 itens, os mais relevantes primeiro.
+
+LIMITES (obrigatórios)
+- Descreva, não interprete clinicamente: NÃO diagnostique, NÃO nomeie transtornos,
+  NÃO sugira medicamentos, tratamentos ou condutas.
+- Não invente: um padrão só vale se aparecer em mais de um registro. Se houver
+  menos de 5 registros, diga que a amostra é pequena e não aponte padrões.
+- Seja neutro e respeitoso, sem alarmismo e sem elogios.
+- Se algum registro mencionar vontade de se machucar, pensamentos sobre morte ou
+  risco para si ou para outros, registre isso de forma factual e destacada em
+  pontos_de_atencao, com a data, e diga nas observações que esse relato merece
+  atenção profissional prioritária. Não minimize nem dramatize.
+- Escreva em português do Brasil, em linguagem clara, sem jargão.
 ''';
 
   late final GenerativeModel _model = FirebaseAI.googleAI().generativeModel(
@@ -142,11 +163,22 @@ Regras:
       }
     }
 
-    final resposta = await _model.generateContent([Content.multi(partes)]);
+        final resposta = await _model
+        .generateContent([Content.multi(partes)])
+        .timeout(const Duration(seconds: 90));
+
     final texto = resposta.text;
+    debugPrint('RELATORIO IA resposta bruta: $texto');
+
     if (texto == null || texto.isEmpty) {
-      throw StateError('A IA não retornou conteúdo.');
+      throw StateError(
+          'A IA não retornou conteúdo (resposta vazia ou bloqueada pelo filtro de segurança).');
     }
-    return RelatorioIA.fromJson(jsonDecode(texto) as Map<String, dynamic>);
+
+    try {
+      return RelatorioIA.fromJson(jsonDecode(texto) as Map<String, dynamic>);
+    } on FormatException {
+      throw StateError('A IA respondeu num formato inesperado:\n$texto');
+    }
   }
 }

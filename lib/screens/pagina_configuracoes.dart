@@ -5,6 +5,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'login_screen.dart';
 import 'privacidade_screen.dart';
 import 'acessibilidade_screen.dart';
+import 'package:flutter/foundation.dart';
+import '../services/diario_service.dart';
 
 class PaginaConfiguracoes extends StatelessWidget {
   const PaginaConfiguracoes({super.key});
@@ -124,6 +126,40 @@ class PaginaConfiguracoes extends StatelessWidget {
               subtitulo: 'Encerrar sessão',
               onTap: () => _sair(context),
             ),
+                        if (kDebugMode) ...[
+              _opcaoConfig(
+                context,
+                icone: Icons.science_outlined,
+                cor: Colors.orangeAccent,
+                titulo: 'Gerar dados de teste',
+                subtitulo: 'Cria registros fictícios do mês passado',
+                onTap: () async {
+                  final agora = DateTime.now();
+                  await DiarioService()
+                      .criarDadosDeTeste(DateTime(agora.year, agora.month - 1));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Dados de teste criados (mês passado)')),
+                    );
+                  }
+                },
+              ),
+              _opcaoConfig(
+                context,
+                icone: Icons.delete_sweep_outlined,
+                cor: Colors.grey,
+                titulo: 'Apagar dados de teste',
+                subtitulo: 'Remove só os registros de teste',
+                onTap: () async {
+                  await DiarioService().apagarDadosDeTeste();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Dados de teste apagados')),
+                    );
+                  }
+                },
+              ),
+            ],
           ],
         ),
       ),
