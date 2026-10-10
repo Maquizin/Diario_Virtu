@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/diario_service.dart';
 import '../models/entrada_diario.dart';
+import '../theme/tema.dart';
+import '../widgets/animacoes.dart';
 import 'pagina_diario.dart';
 
 const List<String> _nomesMeses = [
@@ -12,7 +14,6 @@ const List<String> _nomesDiasSemana = [
   'Quinta-feira', 'Sexta-feira', 'Sábado'
 ];
 const List<String> _abrevDiasSemana = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'];
-const Color _corAccent = Colors.deepPurpleAccent;
 
 class PaginaCalendario extends StatefulWidget {
   const PaginaCalendario({super.key});
@@ -45,6 +46,9 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
 
   @override
   Widget build(BuildContext context) {
+    final cores = context.cores;
+    final accent = cores.destaque;
+
     final inicioGrade = _mesAtual.subtract(Duration(days: _mesAtual.weekday % 7));
     final diasNoMes = DateTime(_mesAtual.year, _mesAtual.month + 1, 0).day;
     final totalCelulas = (((_mesAtual.weekday % 7) + diasNoMes) / 7).ceil() * 7;
@@ -76,12 +80,17 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${_nomesMeses[_mesAtual.month - 1]} ${_mesAtual.year}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                    // O título troca com um fade ao mudar de mês.
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      child: Text(
+                        '${_nomesMeses[_mesAtual.month - 1]} ${_mesAtual.year}',
+                        key: ValueKey(_mesAtual),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     Row(
@@ -103,7 +112,10 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
                   children: _abrevDiasSemana
                       .map((d) => Expanded(
                             child: Center(
-                              child: Text(d, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                              child: Text(d,
+                                  style: TextStyle(
+                                      color: cores.textoSecundario,
+                                      fontSize: 12)),
                             ),
                           ))
                       .toList(),
@@ -123,15 +135,15 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
                       IconData icone;
 
                       if (selecionado) {
-                        corFundo = _corAccent;
+                        corFundo = accent;
                         corIcone = Colors.white;
                         icone = Icons.add;
                       } else if (temEntrada) {
-                        corFundo = _corAccent.withOpacity(0.25);
-                        corIcone = _corAccent;
+                        corFundo = accent.withValues(alpha: 0.25);
+                        corIcone = accent;
                         icone = Icons.check;
                       } else {
-                        corFundo = const Color(0xFF1C1C1E);
+                        corFundo = cores.card;
                         corIcone = doMesAtual ? Colors.white54 : Colors.white24;
                         icone = Icons.add;
                       }
@@ -143,11 +155,28 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Column(
                               children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(color: corFundo, shape: BoxShape.circle),
-                                  child: Icon(icone, size: 16, color: corIcone),
+                                AnimatedScale(
+                                  scale: selecionado ? 1.12 : 1.0,
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutBack,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 250),
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: corFundo,
+                                      shape: BoxShape.circle,
+                                      boxShadow: selecionado
+                                          ? [
+                                              BoxShadow(
+                                                color: accent.withValues(alpha: 0.5),
+                                                blurRadius: 12,
+                                              ),
+                                            ]
+                                          : const [],
+                                    ),
+                                    child: Icon(icone, size: 16, color: corIcone),
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -168,48 +197,53 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
                 const SizedBox(height: 24),
                 Expanded(
                   child: SingleChildScrollView(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_diaSelecionado.day}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 34,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '${_nomesMeses[_diaSelecionado.month - 1].substring(0, 3)}. ${_diaSelecionado.year}',
-                              style: const TextStyle(color: Colors.grey, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          child: Column(
+                    // A chave faz a animação de entrada repetir a cada dia escolhido.
+                    child: EntradaSuave(
+                      key: ValueKey(_diaSelecionado),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _nomesDiasSemana[_diaSelecionado.weekday % 7],
+                                '${_diaSelecionado.day}',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 16,
-                                  fontStyle: FontStyle.italic,
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              if (entradasDoDiaSelecionado.isEmpty)
-                                _cardCriarRegistro()
-                              else
-                                _listaRegistrosDoDia(entradasDoDiaSelecionado),
+                              Text(
+                                '${_nomesMeses[_diaSelecionado.month - 1].substring(0, 3)}. ${_diaSelecionado.year}',
+                                style: TextStyle(
+                                    color: cores.textoSecundario, fontSize: 13),
+                              ),
                             ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _nomesDiasSemana[_diaSelecionado.weekday % 7],
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                if (entradasDoDiaSelecionado.isEmpty)
+                                  _cardCriarRegistro()
+                                else
+                                  _listaRegistrosDoDia(entradasDoDiaSelecionado),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -222,6 +256,8 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
   }
 
   Widget _cardCriarRegistro() {
+    final cores = context.cores;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -234,18 +270,32 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 30),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: cores.card,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: Column(
           children: [
-            const Text('Criar registro', style: TextStyle(color: Colors.white, fontSize: 16)),
+            const Text('Criar registro',
+                style: TextStyle(color: Colors.white, fontSize: 16)),
             const SizedBox(height: 14),
-            Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: const Icon(Icons.add, color: Colors.black),
+            Pulsar(
+              intensidade: 0.07,
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: cores.destaque,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: cores.destaque.withValues(alpha: 0.45),
+                      blurRadius: 14,
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.add, color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -254,21 +304,30 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
   }
 
   Widget _listaRegistrosDoDia(List<EntradaDiario> entradas) {
+    final cores = context.cores;
+
     return Column(
       children: [
-        ...entradas.map((e) {
-          final preview = e.texto.length > 50 ? '${e.texto.substring(0, 50)}...' : e.texto;
-          return Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
-              borderRadius: BorderRadius.circular(15),
+        for (var i = 0; i < entradas.length; i++)
+          EntradaSuave(
+            delay: Duration(milliseconds: 80 * i),
+            child: Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cores.card,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              ),
+              child: Text(
+                entradas[i].texto.length > 50
+                    ? '${entradas[i].texto.substring(0, 50)}...'
+                    : entradas[i].texto,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
             ),
-            child: Text(preview, style: const TextStyle(color: Colors.white, fontSize: 14)),
-          );
-        }),
+          ),
         TextButton.icon(
           onPressed: () {
             Navigator.push(
@@ -278,8 +337,9 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
               ),
             );
           },
-          icon: const Icon(Icons.add, color: Colors.deepPurpleAccent),
-          label: const Text('Adicionar outro registro', style: TextStyle(color: Colors.deepPurpleAccent)),
+          icon: Icon(Icons.add, color: cores.destaque),
+          label: Text('Adicionar outro registro',
+              style: TextStyle(color: cores.destaque)),
         ),
       ],
     );

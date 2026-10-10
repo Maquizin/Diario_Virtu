@@ -4,12 +4,9 @@ import 'package:flutter/material.dart';
 import '../services/diario_service.dart';
 import '../services/relatorio_ia_service.dart';
 import '../utils/humor_utils.dart';
+import '../theme/tema.dart';
+import '../widgets/animacoes.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
-
-// Cores do app (tema escuro, destaque roxo)
-const _fundoCard = Color(0xFF1C1C1E);
-const _roxo = Color(0xFF7C4DFF);
-const _roxoEscuro = Color(0xFF2A1F5C);
 
 // ---------------------------------------------------------------------------
 // MODELOS SIMPLES DESTA TELA
@@ -37,6 +34,10 @@ class RegistroResumo {
 }
 
 DateTime _soDia(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// Versão opaca da cor dos cartões (para janelas e folhas deslizantes).
+Color _fundoOpaco(BuildContext context) =>
+    Color.alphaBlend(context.cores.card, const Color(0xFF0B0B10));
 
 // ---------------------------------------------------------------------------
 // PÁGINA
@@ -191,7 +192,7 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: _fundoCard,
+        backgroundColor: _fundoOpaco(context),
         title: const Text('Não foi possível gerar',
             style: TextStyle(color: Colors.white)),
         content: SingleChildScrollView(
@@ -209,11 +210,12 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
       ),
     );
   }
+
   void _mostrarAnalise(RelatorioIA a) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _fundoCard,
+      backgroundColor: _fundoOpaco(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -254,8 +256,10 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(titulo,
-              style: const TextStyle(
-                  color: _roxo, fontSize: 16, fontWeight: FontWeight.bold)),
+              style: TextStyle(
+                  color: context.cores.destaque,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Text(texto, style: const TextStyle(color: Colors.white, fontSize: 15)),
         ],
@@ -273,12 +277,13 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
   Widget build(BuildContext context) {
     final seq = _sequencias();
     final contagem = _contagemHumoresDoMes();
+    final cores = context.cores;
 
     return SafeArea(
       child: _carregando
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
               children: [
                 const Text('Estatísticas',
                     style: TextStyle(
@@ -286,37 +291,48 @@ class _PaginaEstatisticasState extends State<PaginaEstatisticas> {
                         fontSize: 28,
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
-                _CardResumo(
-                  registros: _registros.length,
-                  humores: _registros.where((r) => r.humorIndex != null).length,
-                  fotos: _registros.where((r) => r.temFoto).length,
+                EntradaSuave(
+                  child: _CardResumo(
+                    registros: _registros.length,
+                    humores: _registros.where((r) => r.humorIndex != null).length,
+                    fotos: _registros.where((r) => r.temFoto).length,
+                  ),
                 ),
                 const SizedBox(height: 16),
-                _CardSequencia(
-                  atual: seq.atual,
-                  maior: seq.maior,
-                  diasComRegistro: _dias,
+                EntradaSuave(
+                  delay: const Duration(milliseconds: 120),
+                  child: _CardSequencia(
+                    atual: seq.atual,
+                    maior: seq.maior,
+                    diasComRegistro: _dias,
+                  ),
                 ),
                 const SizedBox(height: 16),
-                _CardHumoresMes(
-                  mes: _mes,
-                  contagem: contagem,
-                  podeAvancar: !_mesEhAtual,
-                  onAnterior: () => _mudarMes(-1),
-                  onProximo: () => _mudarMes(1),
+                EntradaSuave(
+                  delay: const Duration(milliseconds: 240),
+                  child: _CardHumoresMes(
+                    mes: _mes,
+                    contagem: contagem,
+                    podeAvancar: !_mesEhAtual,
+                    onAnterior: () => _mudarMes(-1),
+                    onProximo: () => _mudarMes(1),
+                  ),
                 ),
                 const SizedBox(height: 20),
-                SizedBox(
-                  height: 52,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _roxo,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                EntradaSuave(
+                  delay: const Duration(milliseconds: 360),
+                  child: SizedBox(
+                    height: 52,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: cores.destaque,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: _gerarRelatorio,
+                      icon: const Icon(Icons.auto_awesome),
+                      label: Text('Gerar relatório de ${_nomeMes(_mes)}'),
                     ),
-                    onPressed: _gerarRelatorio,
-                    icon: const Icon(Icons.auto_awesome),
-                    label: Text('Gerar relatório de ${_nomeMes(_mes)}'),
                   ),
                 ),
               ],
@@ -343,9 +359,11 @@ class _CardResumo extends StatelessWidget {
   Widget _item(int n, String rotulo) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$n',
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 40, fontWeight: FontWeight.w600)),
+          NumeroAnimado(
+            valor: n,
+            estilo: const TextStyle(
+                color: Colors.white, fontSize: 40, fontWeight: FontWeight.w600),
+          ),
           Text(rotulo,
               style: const TextStyle(
                   color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
@@ -354,15 +372,21 @@ class _CardResumo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final d = context.cores.destaque;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF5B3FD9), Color(0xFF8E6BFF)],
+        // Gradiente feito a partir da cor de destaque do usuário.
+        gradient: LinearGradient(
+          colors: [Color.lerp(d, Colors.black, 0.4)!, d],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        boxShadow: [
+          BoxShadow(color: d.withValues(alpha: 0.35), blurRadius: 24, offset: const Offset(0, 8)),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -389,13 +413,20 @@ class _CardSequencia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = context.cores;
     final hoje = _soDia(DateTime.now());
     final ultimos7 = List.generate(
         7, (i) => DateTime(hoje.year, hoje.month, hoje.day - (6 - i)));
 
+    final chama = Icon(Icons.local_fire_department,
+        size: 96, color: atual > 0 ? Colors.orange : cores.destaque);
+
     return Container(
       decoration: BoxDecoration(
-          color: _fundoCard, borderRadius: BorderRadius.circular(28)),
+        color: cores.card,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
       child: Column(
         children: [
           Padding(
@@ -405,16 +436,17 @@ class _CardSequencia extends StatelessWidget {
                 Stack(
                   alignment: Alignment.center,
                   children: [
-                    Icon(Icons.local_fire_department,
-                        size: 96,
-                        color: atual > 0 ? Colors.orange : _roxo),
+                    // A chama "respira" quando há sequência ativa.
+                    atual > 0 ? Pulsar(child: chama) : chama,
                     Padding(
                       padding: const EdgeInsets.only(top: 22),
-                      child: Text('$atual',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold)),
+                      child: NumeroAnimado(
+                        valor: atual,
+                        estilo: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
@@ -429,19 +461,20 @@ class _CardSequencia extends StatelessWidget {
                       fontWeight: FontWeight.bold),
                 ),
                 if (atual == 0)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text('Toda jornada começa com um único passo',
-                        style: TextStyle(color: Colors.grey)),
+                        style: TextStyle(color: cores.textoSecundario)),
                   ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            decoration: const BoxDecoration(
-              color: Color(0xFF141416),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.22),
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(28)),
             ),
             child: Column(
               children: [
@@ -459,7 +492,7 @@ class _CardSequencia extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text('Sequência mais longa: $maior 🔥',
-                    style: const TextStyle(color: Colors.grey)),
+                    style: TextStyle(color: cores.textoSecundario)),
               ],
             ),
           ),
@@ -481,9 +514,11 @@ class _DiaDaSemana extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = context.cores;
     final Color fundo = feito
-        ? _roxoEscuro
-        : (ehHoje ? _roxo : const Color(0xFF232326));
+        ? cores.destaque.withValues(alpha: 0.25)
+        : (ehHoje ? cores.destaque : Colors.white.withValues(alpha: 0.08));
+
     return Column(
       children: [
         Container(
@@ -491,16 +526,20 @@ class _DiaDaSemana extends StatelessWidget {
           height: 38,
           decoration: BoxDecoration(shape: BoxShape.circle, color: fundo),
           child: Icon(feito ? Icons.check : Icons.add,
-              size: 18, color: feito ? _roxo : Colors.white54),
+              size: 18,
+              color: feito
+                  ? cores.destaque
+                  : (ehHoje ? Colors.white : Colors.white54)),
         ),
         const SizedBox(height: 6),
         Text('${dia.day}',
             style: TextStyle(
-                color: ehHoje ? _roxo : Colors.white,
+                color: ehHoje ? cores.destaque : Colors.white,
                 fontWeight: FontWeight.w600)),
         Text(rotulo,
             style: TextStyle(
-                color: ehHoje ? _roxo : Colors.grey, fontSize: 11)),
+                color: ehHoje ? cores.destaque : cores.textoSecundario,
+                fontSize: 11)),
       ],
     );
   }
@@ -525,12 +564,16 @@ class _CardHumoresMes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cores = context.cores;
     final total = contagem.fold<int>(0, (a, b) => a + b);
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-          color: _fundoCard, borderRadius: BorderRadius.circular(28)),
+        color: cores.card,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
       child: Column(
         children: [
           Row(
@@ -540,7 +583,7 @@ class _CardHumoresMes extends StatelessWidget {
                   onPressed: onAnterior,
                   icon: const Icon(Icons.chevron_left, color: Colors.white)),
               Text(_nomeMes(mes),
-                  style: const TextStyle(color: _roxo, fontSize: 20)),
+                  style: TextStyle(color: cores.destaque, fontSize: 20)),
               IconButton(
                   onPressed: podeAvancar ? onProximo : null,
                   icon: Icon(Icons.chevron_right,
@@ -550,19 +593,33 @@ class _CardHumoresMes extends StatelessWidget {
           const SizedBox(height: 12),
           AspectRatio(
             aspectRatio: 2,
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                      painter: _SemicirculoPainter(contagem: contagem, total: total)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text('$total',
-                      style: const TextStyle(color: Colors.white, fontSize: 40)),
-                ),
-              ],
+            // O semicírculo "desenha" de 0 a 100% quando aparece ou o mês muda.
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey('${mes.year}-${mes.month}'),
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutCubic,
+              builder: (_, progresso, __) => Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _SemicirculoPainter(
+                        contagem: contagem,
+                        total: total,
+                        progresso: progresso,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: NumeroAnimado(
+                      valor: total,
+                      estilo: const TextStyle(color: Colors.white, fontSize: 40),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -578,8 +635,10 @@ class _CardHumoresMes extends StatelessWidget {
                       child: Icon(humores[i].icone, color: Colors.black87),
                     ),
                     const SizedBox(height: 6),
-                    Text('${contagem[i]}',
-                        style: const TextStyle(color: Colors.white, fontSize: 18)),
+                    NumeroAnimado(
+                      valor: contagem[i],
+                      estilo: const TextStyle(color: Colors.white, fontSize: 18),
+                    ),
                   ],
                 ),
             ],
@@ -593,7 +652,13 @@ class _CardHumoresMes extends StatelessWidget {
 class _SemicirculoPainter extends CustomPainter {
   final List<int> contagem;
   final int total;
-  _SemicirculoPainter({required this.contagem, required this.total});
+  final double progresso; // 0 a 1, para animar o desenho
+
+  _SemicirculoPainter({
+    required this.contagem,
+    required this.total,
+    required this.progresso,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -608,7 +673,7 @@ class _SemicirculoPainter extends CustomPainter {
       ..strokeCap = StrokeCap.butt;
 
     if (total == 0) {
-      pincel.color = const Color(0xFF2C2C2E);
+      pincel.color = Colors.white.withValues(alpha: 0.1);
       canvas.drawArc(rect, math.pi, math.pi, false, pincel);
       return;
     }
@@ -616,7 +681,7 @@ class _SemicirculoPainter extends CustomPainter {
     var inicio = math.pi;
     for (var i = 0; i < contagem.length; i++) {
       if (contagem[i] == 0) continue;
-      final varredura = math.pi * contagem[i] / total;
+      final varredura = math.pi * contagem[i] / total * progresso;
       pincel.color = humores[i].cor;
       canvas.drawArc(rect, inicio, varredura, false, pincel);
       inicio += varredura;
@@ -625,5 +690,5 @@ class _SemicirculoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SemicirculoPainter old) =>
-      old.total != total || old.contagem != contagem;
+      old.total != total || old.contagem != contagem || old.progresso != progresso;
 }

@@ -1,15 +1,18 @@
-// lib/servicos/relatorio_ia_service.dart
+// lib/services/relatorio_ia_service.dart
 //
-// Serviço que envia os registros de um mês para o Gemini (via Firebase AI Logic)
-// e devolve uma análise estruturada para ser colocada no PDF do médico.
+// Versão que chama a API do Gemini direto (sem Firebase AI Logic).
+// Os nomes das classes são os mesmos da versão anterior, então o resto do
+// app não precisa mudar.
 //
-// Ele NÃO depende das suas classes: você converte seus registros para
-// [RegistroParaRelatorio] antes de chamar o serviço.
+// A chave NÃO fica no código. Rode o app assim:
+//   flutter run --dart-define=GEMINI_API_KEY=SUA_CHAVE
+//
+// Gere a chave em: https://aistudio.google.com/apikey
 
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:firebase_ai/firebase_ai.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import '../config/segredos.dart';
+import 'package:http/http.dart' as http;
 
 /// Arquivo anexado a um registro (foto ou áudio) já baixado em memória.
 class Anexo {
@@ -24,7 +27,7 @@ class Anexo {
 /// Um registro do diário, no formato que a IA precisa.
 class RegistroParaRelatorio {
   final DateTime data;
-  final String? humor; // nome do humor, ex.: "Feliz", "Triste"
+  final String? humor;
   final String? texto;
   final List<Anexo> imagens;
   final List<Anexo> audios;
@@ -69,68 +72,106 @@ class RelatorioIA {
 }
 
 class RelatorioIAService {
-  // Confira no console do Firebase qual modelo Gemini está disponível para você.
-  static const String _modelo = 'gemini-2.5-flash';
+  // Confira em https://ai.google.dev/gemini-api/docs/models qual modelo usar.
+  static const String _modelo = 'gemini-3.8-flash';
+  static const String _chave = geminiApiKey;
 
-  static const String _instrucao = '''Você analisa os registros de um diário pessoal de bem-estar emocional (app Serenia)
-para que a própria pessoa leve um resumo organizado a uma consulta com seu médico
-ou psicólogo. O leitor final é o profissional de saúde.
+  static Uri get _url => Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/models/$_modelo:generateContent');
 
-COMO OS DADOS CHEGAM
-- Cada registro tem data, humor e texto (às vezes imagens ou áudios).
-- O humor é autoavaliado pela pessoa numa escala de 5 níveis, do pior ao melhor:
-  Muito mal, Mal, Neutro, Bem, Muito bem.
-- "Neutro" também é o valor padrão: pode significar que a pessoa não ajustou o
-  humor. Só trate "Neutro" como estado emocional se o texto confirmar.
-- Os registros têm lacunas. Dias sem registro NÃO significam dias bons ou ruins.
+  static const String _instrucao = '''
+Você é um assistente que organiza os relatos de um diário pessoal para que o
+usuário os leve a uma consulta com seu médico.
 
-O QUE FAZER
-1. Leia tudo e procure padrões: temas que se repetem (sono, estudos ou trabalho,
-   relações, alimentação, atividade física, ansiedade, cansaço...), gatilhos
-   aparentes, o que aparece nos dias melhores e nos piores e mudanças ao longo do mês.
-2. Relacione humor e texto: aponte quando combinam ou destoam.
-3. Cite datas (dd/mm) em tudo que for relevante. Use poucas citações curtas dos
-   registros, entre aspas, só quando ajudarem.
-4. Destaque mudanças de tendência (piora, melhora, oscilação) e dias fora do padrão.
-5. Nas listas, no máximo 5 itens, os mais relevantes primeiro.
-
-LIMITES (obrigatórios)
-- Descreva, não interprete clinicamente: NÃO diagnostique, NÃO nomeie transtornos,
-  NÃO sugira medicamentos, tratamentos ou condutas.
-- Não invente: um padrão só vale se aparecer em mais de um registro. Se houver
-  menos de 5 registros, diga que a amostra é pequena e não aponte padrões.
-- Seja neutro e respeitoso, sem alarmismo e sem elogios.
-- Se algum registro mencionar vontade de se machucar, pensamentos sobre morte ou
-  risco para si ou para outros, registre isso de forma factual e destacada em
-  pontos_de_atencao, com a data, e diga nas observações que esse relato merece
-  atenção profissional prioritária. Não minimize nem dramatize.
-- Escreva em português do Brasil, em linguagem clara, sem jargão.
+Regras:
+- Leia TODOS os registros (textos, imagens e áudios) e encontre padrões:
+  temas que se repetem, situações que aparecem várias vezes, mudanças ao longo
+  do mês e dias fora do comum.
+- Seja descritivo e neutro. Descreva o que o usuário relatou; NÃO faça
+  diagnósticos, NÃO sugira medicamentos e NÃO dê conselhos clínicos.
+- Cite as datas (dd/mm) quando apontar algo importante.
+- Se houver pouco conteúdo, diga isso em vez de inventar padrões.
+- Escreva em português do Brasil, em linguagem clara.
 ''';
 
-  late final GenerativeModel _model = FirebaseAI.googleAI().generativeModel(
-    model: _modelo,
-    systemInstruction: Content.system(_instrucao),
-    generationConfig: GenerationConfig(
-      responseMimeType: 'application/json',
-      temperature: 0.3,
-      responseSchema: Schema.object(
-        properties: {
-          'resumo_geral': Schema.string(
-              description: 'Resumo do mês em 1 ou 2 parágrafos.'),
-          'temas_recorrentes': Schema.array(
-              items: Schema.string(),
-              description: 'Assuntos que aparecem em vários registros.'),
-          'pontos_de_atencao': Schema.array(
-              items: Schema.string(),
-              description: 'Fatos relevantes para o médico, com datas.'),
-          'variacao_do_humor': Schema.string(
-              description: 'Como o humor variou ao longo do mês.'),
-          'observacoes_para_o_medico': Schema.string(
-              description: 'Texto curto e direto dirigido ao médico.'),
-        },
-      ),
-    ),
-  );
+  static const Map<String, dynamic> _schema = {
+    'type': 'OBJECT',
+    'properties': {
+      'resumo_geral': {
+        'type': 'STRING',
+        'description': 'Resumo do mês em 1 ou 2 parágrafos.'
+      },
+      'temas_recorrentes': {
+        'type': 'ARRAY',
+        'items': {'type': 'STRING'},
+        'description': 'Assuntos que aparecem em vários registros.'
+      },
+      'pontos_de_atencao': {
+        'type': 'ARRAY',
+        'items': {'type': 'STRING'},
+        'description': 'Fatos relevantes para o médico, com datas.'
+      },
+      'variacao_do_humor': {
+        'type': 'STRING',
+        'description': 'Como o humor variou ao longo do mês.'
+      },
+      'observacoes_para_o_medico': {
+        'type': 'STRING',
+        'description': 'Texto curto e direto dirigido ao médico.'
+      },
+    },
+  };
+
+  void _exigirChave() {
+    if (_chave.isEmpty) {
+      throw StateError(
+          'Chave da IA não configurada. Rode o app com '
+          '--dart-define=GEMINI_API_KEY=SUA_CHAVE');
+    }
+  }
+
+  Future<Map<String, dynamic>> _chamar(Map<String, dynamic> corpo) async {
+    _exigirChave();
+    final resposta = await http.post(
+      _url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': _chave,
+      },
+      body: jsonEncode(corpo),
+    );
+    if (resposta.statusCode != 200) {
+      throw StateError('Erro ${resposta.statusCode} da API:\n${resposta.body}');
+    }
+    return jsonDecode(utf8.decode(resposta.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  String _extrairTexto(Map<String, dynamic> json) {
+    final candidatos = json['candidates'] as List?;
+    final partes = (candidatos?.isNotEmpty ?? false)
+        ? (candidatos!.first['content']?['parts'] as List?)
+        : null;
+    final texto = partes?.map((p) => p['text'] ?? '').join();
+    if (texto == null || texto.isEmpty) {
+      throw StateError('A IA não retornou conteúdo.\n$json');
+    }
+    return texto;
+  }
+
+  /// Teste rápido de conexão (usado pelo botão "Testar IA").
+  Future<String> testarConexao() async {
+    final json = await _chamar({
+      'contents': [
+        {
+          'role': 'user',
+          'parts': [
+            {'text': 'Diga olá em uma frase.'}
+          ]
+        }
+      ],
+    });
+    return _extrairTexto(json);
+  }
 
   /// Gera a análise de um mês. [registros] deve conter só os do mês escolhido.
   Future<RelatorioIA> gerar({
@@ -142,43 +183,49 @@ LIMITES (obrigatórios)
     }
 
     final ordenados = [...registros]..sort((a, b) => a.data.compareTo(b.data));
-    final partes = <Part>[
-      TextPart('Registros do diário em ${mes.month.toString().padLeft(2, '0')}/${mes.year}. '
-          'Cada registro começa com sua data.'),
+    final partes = <Map<String, dynamic>>[
+      {
+        'text': 'Registros do diário em '
+            '${mes.month.toString().padLeft(2, '0')}/${mes.year}. '
+            'Cada registro começa com sua data.'
+      },
     ];
 
     for (final r in ordenados) {
       final d = '${r.data.day.toString().padLeft(2, '0')}/'
           '${r.data.month.toString().padLeft(2, '0')}/${r.data.year}';
-      partes.add(TextPart('\n--- Registro de $d ---'));
-      if (r.humor != null) partes.add(TextPart('Humor: ${r.humor}'));
+      partes.add({'text': '\n--- Registro de $d ---'});
+      if (r.humor != null) partes.add({'text': 'Humor: ${r.humor}'});
       if (r.texto != null && r.texto!.trim().isNotEmpty) {
-        partes.add(TextPart('Texto: ${r.texto}'));
+        partes.add({'text': 'Texto: ${r.texto}'});
       }
-      for (final img in r.imagens) {
-        partes.add(InlineDataPart(img.mimeType, img.bytes));
-      }
-      for (final aud in r.audios) {
-        partes.add(InlineDataPart(aud.mimeType, aud.bytes));
+      for (final a in [...r.imagens, ...r.audios]) {
+        partes.add({
+          'inlineData': {
+            'mimeType': a.mimeType,
+            'data': base64Encode(a.bytes),
+          }
+        });
       }
     }
 
-        final resposta = await _model
-        .generateContent([Content.multi(partes)])
-        .timeout(const Duration(seconds: 90));
+    final json = await _chamar({
+      'systemInstruction': {
+        'parts': [
+          {'text': _instrucao}
+        ]
+      },
+      'contents': [
+        {'role': 'user', 'parts': partes}
+      ],
+      'generationConfig': {
+        'responseMimeType': 'application/json',
+        'responseSchema': _schema,
+        'temperature': 0.3,
+      },
+    });
 
-    final texto = resposta.text;
-    debugPrint('RELATORIO IA resposta bruta: $texto');
-
-    if (texto == null || texto.isEmpty) {
-      throw StateError(
-          'A IA não retornou conteúdo (resposta vazia ou bloqueada pelo filtro de segurança).');
-    }
-
-    try {
-      return RelatorioIA.fromJson(jsonDecode(texto) as Map<String, dynamic>);
-    } on FormatException {
-      throw StateError('A IA respondeu num formato inesperado:\n$texto');
-    }
+    return RelatorioIA.fromJson(
+        jsonDecode(_extrairTexto(json)) as Map<String, dynamic>);
   }
 }

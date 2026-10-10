@@ -1,5 +1,7 @@
+// lib/screens/tela_principal.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../theme/tema.dart';
 import 'pagina_diario.dart';
 import 'pagina_historico.dart';
 import 'pagina_calendario.dart';
@@ -14,7 +16,6 @@ class TelaPrincipal extends StatefulWidget {
 }
 
 class _TelaPrincipalState extends State<TelaPrincipal> {
-
   int paginaAtual = 0;
 
   final List<Widget> paginas = [
@@ -31,110 +32,129 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
     );
   }
 
+  void _ir(int pagina) {
+    HapticFeedback.lightImpact();
+    setState(() => paginaAtual = pagina);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
+    final cores = context.cores;
 
-      body: paginas[paginaAtual],
+    return Scaffold(
+      // Transparente: o fundo animado do app aparece atrás.
+      backgroundColor: Colors.transparent,
+
+      // Troca de página com um fade suave.
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeOut,
+        child: KeyedSubtree(
+          key: ValueKey(paginaAtual),
+          child: paginas[paginaAtual],
+        ),
+      ),
 
       bottomNavigationBar: Container(
         height: 80,
-        margin: EdgeInsets.all(16),
-
+        margin: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Color(0xFF1C1C1E),
+          color: cores.card,
           borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
-
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-
-            // DIÁRIO (mini resumo / histórico)
-            IconButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                setState(() {
-                  paginaAtual = 0;
-                });
-              },
-              icon: Icon(
-                Icons.menu_book_outlined,
-                color: paginaAtual == 0
-                    ? Colors.white
-                    : Colors.grey,
-              ),
+            _ItemNav(
+              icone: Icons.menu_book_outlined,
+              selecionado: paginaAtual == 0,
+              onTap: () => _ir(0),
             ),
-
-            // CALENDÁRIO
-            IconButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                setState(() {
-                  paginaAtual = 1;
-                });
-              },
-              icon: Icon(
-                Icons.calendar_today_outlined,
-                color: paginaAtual == 1
-                    ? Colors.white
-                    : Colors.grey,
-              ),
+            _ItemNav(
+              icone: Icons.calendar_today_outlined,
+              selecionado: paginaAtual == 1,
+              onTap: () => _ir(1),
             ),
 
             // "+" CENTRAL — abre a tela de nova anotação
-            Container(
-              width: 60,
-              height: 60,
-             decoration: BoxDecoration(
-               color: Colors.white,
-                shape: BoxShape.circle,
-                ),
-    child: IconButton(
-    onPressed: () {
-      HapticFeedback.lightImpact();
-      _abrirNovaAnotacao();
-    },
-    icon: Icon(
-      Icons.add,
-      color: Colors.black,
-    ),
-  ),
-),
-
-            // ESTATÍSTICAS
-            IconButton(
-              onPressed: () {
+            GestureDetector(
+              onTap: () {
                 HapticFeedback.lightImpact();
-                setState(() {
-                  paginaAtual = 2;
-                });
+                _abrirNovaAnotacao();
               },
-              icon: Icon(
-                Icons.bar_chart_rounded,
-                color: paginaAtual == 2
-                    ? Colors.white
-                    : Colors.grey,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: cores.destaque,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: cores.destaque.withValues(alpha: 0.5),
+                      blurRadius: 16,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 30),
               ),
             ),
 
-            // SOBRE MIM / CONFIG
-            IconButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                setState(() {
-                  paginaAtual = 3;
-                });
-              },
-              icon: Icon(
-                Icons.person_outline,
-                color: paginaAtual == 3
-                    ? Colors.white
-                    : Colors.grey,
-              ),
+            _ItemNav(
+              icone: Icons.bar_chart_rounded,
+              selecionado: paginaAtual == 2,
+              onTap: () => _ir(2),
+            ),
+            _ItemNav(
+              icone: Icons.person_outline,
+              selecionado: paginaAtual == 3,
+              onTap: () => _ir(3),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ícone da barra de baixo, com "pílula" e leve aumento quando selecionado.
+class _ItemNav extends StatelessWidget {
+  final IconData icone;
+  final bool selecionado;
+  final VoidCallback onTap;
+
+  const _ItemNav({
+    required this.icone,
+    required this.selecionado,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cores = context.cores;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selecionado
+              ? cores.destaque.withValues(alpha: 0.22)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: AnimatedScale(
+          scale: selecionado ? 1.15 : 1.0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutBack,
+          child: Icon(
+            icone,
+            color: selecionado ? Colors.white : cores.textoSecundario,
+          ),
         ),
       ),
     );
