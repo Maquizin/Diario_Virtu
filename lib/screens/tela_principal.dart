@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../theme/tema.dart';
 import 'pagina_diario.dart';
 import 'pagina_historico.dart';
-import 'pagina_calendario.dart';
+import 'pagina_inicio.dart';
 import 'pagina_estatisticas.dart';
 import 'pagina_configuracoes.dart';
 
@@ -19,9 +19,9 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
   int paginaAtual = 0;
 
   final List<Widget> paginas = [
-    PaginaHistorico(),
-    const PaginaCalendario(),
+    const PaginaInicio(),
     const PaginaEstatisticas(),
+    PaginaHistorico(),
     const PaginaConfiguracoes(),
   ];
 
@@ -67,12 +67,12 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _ItemNav(
-              icone: Icons.menu_book_outlined,
+              icone: Icons.home_outlined,
               selecionado: paginaAtual == 0,
               onTap: () => _ir(0),
             ),
             _ItemNav(
-              icone: Icons.calendar_today_outlined,
+              icone: Icons.bar_chart_rounded,
               selecionado: paginaAtual == 1,
               onTap: () => _ir(1),
             ),
@@ -102,7 +102,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             ),
 
             _ItemNav(
-              icone: Icons.bar_chart_rounded,
+              icone: Icons.menu_book_outlined,
               selecionado: paginaAtual == 2,
               onTap: () => _ir(2),
             ),

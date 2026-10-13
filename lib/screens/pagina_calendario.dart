@@ -16,7 +16,10 @@ const List<String> _nomesDiasSemana = [
 const List<String> _abrevDiasSemana = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'];
 
 class PaginaCalendario extends StatefulWidget {
-  const PaginaCalendario({super.key});
+  /// true = usado dentro de outra tela que já rola (a tela de início):
+  /// não ocupa a tela toda nem cria rolagem própria.
+  final bool embutido;
+  const PaginaCalendario({super.key, this.embutido = false});
 
   @override
   State<PaginaCalendario> createState() => _PaginaCalendarioState();
@@ -60,8 +63,7 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
     final inicioPeriodo = inicioGrade;
     final fimPeriodo = inicioGrade.add(Duration(days: totalCelulas));
 
-    return SafeArea(
-      child: StreamBuilder<List<EntradaDiario>>(
+    final corpo = StreamBuilder<List<EntradaDiario>>(
         stream: _service.streamEntradasPeriodo(inicioPeriodo, fimPeriodo),
         builder: (context, snapshot) {
           final entradas = snapshot.data ?? [];
@@ -73,8 +75,10 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
               .toSet();
 
           return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            padding: EdgeInsets.fromLTRB(
+                widget.embutido ? 0 : 20, widget.embutido ? 0 : 20, widget.embutido ? 0 : 20, widget.embutido ? 8 : 0),
             child: Column(
+              mainAxisSize: widget.embutido ? MainAxisSize.min : MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -195,16 +199,15 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
                   );
                 }),
                 const SizedBox(height: 24),
-                Expanded(
-                  child: SingleChildScrollView(
-                    // A chave faz a animação de entrada repetir a cada dia escolhido.
-                    child: EntradaSuave(
+                _areaDoDia(
+                  EntradaSuave(
                       key: ValueKey(_diaSelecionado),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          // Cabeçalho do dia: 12 · Out. 2026 · Segunda-feira
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
                                 '${_diaSelecionado.day}',
@@ -214,45 +217,53 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text(
-                                '${_nomesMeses[_diaSelecionado.month - 1].substring(0, 3)}. ${_diaSelecionado.year}',
-                                style: TextStyle(
-                                    color: cores.textoSecundario, fontSize: 13),
+                              const SizedBox(width: 12),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 5),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _nomesDiasSemana[_diaSelecionado.weekday % 7],
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_nomesMeses[_diaSelecionado.month - 1].substring(0, 3)}. ${_diaSelecionado.year}',
+                                      style: TextStyle(
+                                          color: cores.textoSecundario,
+                                          fontSize: 13),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _nomesDiasSemana[_diaSelecionado.weekday % 7],
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                if (entradasDoDiaSelecionado.isEmpty)
-                                  _cardCriarRegistro()
-                                else
-                                  _listaRegistrosDoDia(entradasDoDiaSelecionado),
-                              ],
-                            ),
-                          ),
+                          const SizedBox(height: 14),
+                          // Ocupa a largura toda, de borda a borda.
+                          if (entradasDoDiaSelecionado.isEmpty)
+                            _cardCriarRegistro()
+                          else
+                            _listaRegistrosDoDia(entradasDoDiaSelecionado),
                         ],
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           );
         },
-      ),
     );
+    return widget.embutido ? corpo : SafeArea(child: corpo);
+  }
+
+  /// Fora da tela de início, a área do dia rola sozinha; dentro dela, não.
+  Widget _areaDoDia(Widget conteudo) {
+    if (widget.embutido) return conteudo;
+    return Expanded(child: SingleChildScrollView(child: conteudo));
   }
 
   Widget _cardCriarRegistro() {
@@ -268,6 +279,7 @@ class _PaginaCalendarioState extends State<PaginaCalendario> {
         );
       },
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 30),
         decoration: BoxDecoration(
           color: cores.card,

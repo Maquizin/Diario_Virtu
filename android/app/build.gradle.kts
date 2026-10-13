@@ -8,16 +8,22 @@ plugins {
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
     implementation("com.google.firebase:firebase-analytics")
+
+    // Necessário para flutter_local_notifications (notificações).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 
 android {
+    ndkVersion = "28.2.13676358"
     namespace = "com.example.diario_virtual"
     compileSdk = flutter.compileSdkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        
     }
 
     kotlinOptions {

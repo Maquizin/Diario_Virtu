@@ -7,9 +7,8 @@ import '../models/entrada_diario.dart';
 class DiarioService {
   final FirebaseFirestore firestore = FirebaseFirestore.instanceFor(
     app: Firebase.app(),
-    databaseId: 'serenia-db',
+    databaseId: 'default',
   );
-
   final FirebaseAuth auth = FirebaseAuth.instance;
 
   Future<void> salvarEntrada(
@@ -19,6 +18,7 @@ class DiarioService {
     String? audioUrl,
     String? imagemUrl,
     DateTime? data,
+    bool favorito = false,
   }) async {
     final user = auth.currentUser;
     if (user == null) return;
