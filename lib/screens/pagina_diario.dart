@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../models/entrada_diario.dart';
 import '../services/diario_service.dart';
 import '../theme/tema.dart';

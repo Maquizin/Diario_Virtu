@@ -12,6 +12,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import '../config/segredos.dart';
+import 'perfil_contexto.dart';
 import 'package:http/http.dart' as http;
 
 /// Arquivo anexado a um registro (foto ou áudio) já baixado em memória.
@@ -92,6 +93,9 @@ Regras:
 - Cite as datas (dd/mm) quando apontar algo importante.
 - Se houver pouco conteúdo, diga isso em vez de inventar padrões.
 - Escreva em português do Brasil, em linguagem clara.
+- Se vier um bloco "Contexto informado pela própria pessoa", use-o só para
+  entender melhor os relatos (ex.: o que costuma lhe fazer bem ou mal). Não
+  trate esse contexto como diagnóstico nem tire conclusões clínicas dele.
 ''';
 
   static const Map<String, dynamic> _schema = {
@@ -190,6 +194,15 @@ Regras:
             'Cada registro começa com sua data.'
       },
     ];
+
+    // Perfil informado pelo usuário (só vem se ele ligou "Usar no relatório").
+    String? contexto;
+    try {
+      contexto = await PerfilContexto.texto();
+    } catch (_) {}
+    if (contexto != null && contexto.trim().isNotEmpty) {
+      partes.add({'text': '\n$contexto'});
+    }
 
     for (final r in ordenados) {
       final d = '${r.data.day.toString().padLeft(2, '0')}/'

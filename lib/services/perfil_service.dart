@@ -9,8 +9,11 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'diario_service.dart';
+
+import '../services/diario_service.dart';
+import '../screens/tela_recortar.dart';
 
 class PerfilService {
   PerfilService._();
@@ -38,9 +41,13 @@ class PerfilService {
     }
   }
 
-  /// Abre a galeria/câmera e salva. [banner] = true para o banner.
-  /// Devolve false se o usuário cancelou.
-  static Future<bool> escolher({
+  static AjusteImagem? ajuste(Map<String, dynamic>? dados, String campo) =>
+      AjusteImagem.fromList(dados?['${campo}Ajuste']);
+
+  /// Abre a galeria/câmera, deixa o usuário recortar e salva.
+  /// [banner] = true para o banner. Devolve false se cancelou.
+  static Future<bool> escolher(
+    BuildContext context, {
     required bool banner,
     ImageSource origem = ImageSource.gallery,
   }) async {
@@ -49,15 +56,29 @@ class PerfilService {
 
     final arquivo = await ImagePicker().pickImage(
       source: origem,
-      maxWidth: banner ? 1000 : 400,
-      maxHeight: banner ? 500 : 400,
-      imageQuality: banner ? 70 : 75,
+      maxWidth: banner ? 1200 : 800,
+      maxHeight: 1200,
+      imageQuality: 80,
     );
     if (arquivo == null) return false;
+    final original = await arquivo.readAsBytes();
+    if (!context.mounted) return false;
 
-    final bytes = await arquivo.readAsBytes();
+    final ajuste = await Navigator.of(context).push<AjusteImagem>(
+      MaterialPageRoute(
+        builder: (_) => TelaRecortar(
+          bytes: original,
+          titulo: banner ? 'Ajustar banner' : 'Ajustar foto',
+          proporcao: banner ? 2.7 : 1,
+          circulo: !banner,
+        ),
+      ),
+    );
+    if (ajuste == null) return false;
+
+    final campo = banner ? 'banner' : 'foto';
     await doc.set(
-      {banner ? 'banner' : 'foto': base64Encode(bytes)},
+      {campo: base64Encode(original), '${campo}Ajuste': ajuste.toList()},
       SetOptions(merge: true),
     );
     return true;
@@ -65,7 +86,10 @@ class PerfilService {
 
   static Future<void> remover({required bool banner}) async {
     await _doc?.set(
-      {banner ? 'banner' : 'foto': FieldValue.delete()},
+      {
+        banner ? 'banner' : 'foto': FieldValue.delete(),
+        banner ? 'bannerAjuste' : 'fotoAjuste': FieldValue.delete(),
+      },
       SetOptions(merge: true),
     );
   }

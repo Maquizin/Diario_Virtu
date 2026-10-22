@@ -8,16 +8,21 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/perfil_service.dart';
+import 'tela_recortar.dart';
 import '../theme/tema.dart';
 import '../widgets/animacoes.dart';
 import 'acessibilidade_screen.dart';
 import 'login_screen.dart';
 import 'tela_ajuda.dart';
+import 'tela_conquistas.dart';
 import 'tela_debug.dart';
 import 'tela_desenvolvedor.dart';
 import 'tela_privacidade_seguranca.dart';
 import 'tela_relatorios.dart';
 import 'tela_sobre_mim.dart';
+
+/// Versão mostrada no rodapé. Mantenha igual ao `version:` do pubspec.yaml.
+const String versaoApp = '1.0.0';
 
 class PaginaConfiguracoes extends StatelessWidget {
   const PaginaConfiguracoes({super.key});
@@ -71,6 +76,7 @@ class PaginaConfiguracoes extends StatelessWidget {
         await PerfilService.remover(banner: banner);
       } else {
         await PerfilService.escolher(
+          context,
           banner: banner,
           origem: acao == 'camera' ? ImageSource.camera : ImageSource.gallery,
         );
@@ -110,6 +116,8 @@ class PaginaConfiguracoes extends StatelessWidget {
                 user: user,
                 banner: PerfilService.imagem(dados, 'banner'),
                 foto: PerfilService.imagem(dados, 'foto'),
+                ajusteBanner: PerfilService.ajuste(dados, 'banner'),
+                ajusteFoto: PerfilService.ajuste(dados, 'foto'),
               );
             },
           ),
@@ -146,6 +154,15 @@ class PaginaConfiguracoes extends StatelessWidget {
           _opcaoConfig(
             context,
             ordem: 4,
+            icone: Icons.emoji_events_outlined,
+            cor: Colors.amber,
+            titulo: 'Conquistas',
+            subtitulo: 'Medalhas que você desbloqueia usando o app',
+            onTap: () => _push(context, const TelaConquistas()),
+          ),
+          _opcaoConfig(
+            context,
+            ordem: 5,
             icone: Icons.description_outlined,
             cor: Colors.tealAccent,
             titulo: 'Meus relatórios',
@@ -154,7 +171,7 @@ class PaginaConfiguracoes extends StatelessWidget {
           ),
           _opcaoConfig(
             context,
-            ordem: 5,
+            ordem: 6,
             icone: Icons.accessibility_new,
             cor: Colors.blueAccent,
             titulo: 'Acessibilidade',
@@ -163,7 +180,7 @@ class PaginaConfiguracoes extends StatelessWidget {
           ),
           _opcaoConfig(
             context,
-            ordem: 6,
+            ordem: 7,
             icone: Icons.sos_rounded,
             cor: Colors.redAccent,
             titulo: 'Preciso de ajuda',
@@ -172,7 +189,7 @@ class PaginaConfiguracoes extends StatelessWidget {
           ),
           _opcaoConfig(
             context,
-            ordem: 7,
+            ordem: 8,
             icone: Icons.code_rounded,
             cor: Colors.cyanAccent,
             titulo: 'Sobre o desenvolvedor',
@@ -181,7 +198,7 @@ class PaginaConfiguracoes extends StatelessWidget {
           ),
           _opcaoConfig(
             context,
-            ordem: 8,
+            ordem: 9,
             icone: Icons.logout,
             cor: Colors.redAccent,
             titulo: 'Sair da conta',
@@ -193,13 +210,22 @@ class PaginaConfiguracoes extends StatelessWidget {
           if (kDebugMode)
             _opcaoConfig(
               context,
-              ordem: 9,
+              ordem: 10,
               icone: Icons.bug_report_outlined,
               cor: Colors.orangeAccent,
               titulo: 'Debug',
               subtitulo: 'Ferramentas de desenvolvedor',
               onTap: () => _push(context, const TelaDebug()),
             ),
+
+          const SizedBox(height: 18),
+          Center(
+            child: Text(
+              'SERENIA $versaoApp',
+              style: TextStyle(
+                  color: context.cores.textoSecundario, fontSize: 12),
+            ),
+          ),
         ],
       ),
     );
@@ -211,15 +237,15 @@ class PaginaConfiguracoes extends StatelessWidget {
     required User? user,
     required Uint8List? banner,
     required Uint8List? foto,
+    AjusteImagem? ajusteBanner,
+    AjusteImagem? ajusteFoto,
   }) {
     final cores = context.cores;
     const alturaBanner = 130.0;
     const raio = 46.0;
 
     ImageProvider? imagemFoto;
-    if (foto != null) {
-      imagemFoto = MemoryImage(foto);
-    } else if (user?.photoURL != null) {
+    if (foto == null && user?.photoURL != null) {
       imagemFoto = NetworkImage(user!.photoURL!);
     }
 
@@ -252,7 +278,9 @@ class PaginaConfiguracoes extends StatelessWidget {
                   height: alturaBanner,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(22),
-                    child: Container(
+                    child: banner != null
+                        ? ImagemAjustada(bytes: banner, ajuste: ajusteBanner)
+                        : Container(
                       decoration: BoxDecoration(
                         gradient: banner == null
                             ? LinearGradient(
@@ -263,10 +291,6 @@ class PaginaConfiguracoes extends StatelessWidget {
                                   cores.destaque.withValues(alpha: 0.25),
                                 ],
                               )
-                            : null,
-                        image: banner != null
-                            ? DecorationImage(
-                                image: MemoryImage(banner), fit: BoxFit.cover)
                             : null,
                       ),
                     ),
@@ -290,15 +314,24 @@ class PaginaConfiguracoes extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: Colors.black.withValues(alpha: 0.6),
                         ),
-                        child: CircleAvatar(
-                          radius: raio,
-                          backgroundColor: cores.cardSuave,
-                          backgroundImage: imagemFoto,
-                          child: imagemFoto == null
-                              ? Icon(Icons.person,
-                                  size: 44, color: cores.textoSecundario)
-                              : null,
-                        ),
+                        child: foto != null
+                            ? ClipOval(
+                                child: SizedBox(
+                                  width: raio * 2,
+                                  height: raio * 2,
+                                  child: ImagemAjustada(
+                                      bytes: foto, ajuste: ajusteFoto),
+                                ),
+                              )
+                            : CircleAvatar(
+                                radius: raio,
+                                backgroundColor: cores.cardSuave,
+                                backgroundImage: imagemFoto,
+                                child: imagemFoto == null
+                                    ? Icon(Icons.person,
+                                        size: 44, color: cores.textoSecundario)
+                                    : null,
+                              ),
                       ),
                       Positioned(
                         right: 0,

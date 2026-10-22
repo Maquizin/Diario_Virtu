@@ -6,6 +6,7 @@ import 'screens/auth_gate.dart';
 import 'screens/login_screen.dart';
 import 'screens/tela_principal.dart';
 import 'screens/tela_aparencia.dart';
+import 'services/acessibilidade_service.dart';
 import 'services/bloqueio_biometrico.dart';
 import 'services/gerador_relatorios.dart';
 import 'theme/tema.dart';
@@ -22,6 +23,7 @@ void main() async {
 
   await Firebase.initializeApp();
   await temaController.carregar(); // lê o tema que o usuário escolheu
+  await acessibilidade.carregar(); // lê as opções de acessibilidade
   geradorRelatorios.iniciar(); // retoma relatórios que ficaram pendentes
 
   runApp(const DiarioApp());
@@ -43,12 +45,15 @@ class DiarioApp extends StatelessWidget {
           scaffoldMessengerKey: mensagensKey,
           theme: temaController.themeData,
 
-          // O fundo animado fica atrás de TODAS as telas.
-          builder: (context, child) => PortaoBiometrico(
-            child: FundoAnimado(
-              tema: temaController.tema,
-              destaque: temaController.destaque,
-              child: child ?? const SizedBox.shrink(),
+          // Acessibilidade por fora de tudo; o fundo animado fica atrás
+          // de TODAS as telas.
+          builder: (context, child) => AcessibilidadeAplicada(
+            child: PortaoBiometrico(
+              child: FundoAnimado(
+                tema: temaController.tema,
+                destaque: temaController.destaque,
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
 
